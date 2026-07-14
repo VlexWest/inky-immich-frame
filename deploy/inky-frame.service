@@ -1,0 +1,16 @@
+[Unit]
+Description=Inky Immich Frame
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/inky-immich-frame
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/pi/inky-immich-frame/.venv/bin/python -m inky_frame.app --config /home/pi/inky-immich-frame/config.yaml
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+# secrets / runtime
+config.yaml
+*.local.yaml
+.env
+cache/
+state/
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+

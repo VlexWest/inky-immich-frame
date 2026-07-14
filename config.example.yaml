@@ -1,0 +1,9 @@
+# Copy to config.yaml and fill in. config.yaml is gitignored.
+immich_url: "http://your-immich-host:2283"
+api_key: "REPLACE_WITH_SCOPED_READONLY_KEY"
+refresh_times: ["07:30", "12:30"]
+cache_dir: "cache"
+state_file: "state/state.json"
+width: 800
+height: 480
+saturation: 0.5
