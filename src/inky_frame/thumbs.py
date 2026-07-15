@@ -1,5 +1,6 @@
 import os
 import re
+import threading
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -31,7 +32,7 @@ class ThumbnailCache:
 
         data = self._immich.download_asset(asset_id, size="thumbnail")
         os.makedirs(self._dir, exist_ok=True)
-        tmp = f"{path}.part"
+        tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.part"
         with open(tmp, "wb") as f:
             f.write(data)
         os.replace(tmp, path)   # never leave a half-written tile behind

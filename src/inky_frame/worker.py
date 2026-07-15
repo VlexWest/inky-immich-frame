@@ -7,21 +7,25 @@ class RenderWorker:
 
     An e-ink refresh takes ~40s. Doing it inside a request would hang the
     browser long enough that it gives up, so requests only ever ask for a
-    render and return immediately. While one is running further requests are
-    rejected rather than queued: a repeated tap means "show me a picture",
-    which the in-flight render already satisfies.
+    render and return immediately. While one is running, further requests are
+    coalesced rather than queued: a request that arrives while busy is
+    remembered and triggers exactly one more render once the current one
+    finishes, so the last request always wins and is never silently dropped
+    (a pin means "show me *this* picture", not just any picture).
     """
 
     def __init__(self, render: Callable[[], object]) -> None:
         self._render = render
         self._lock = threading.Lock()
         self._busy = False
+        self._pending = False
         self._error: str | None = None
 
     def request(self) -> bool:
         """Start a render. Returns False if one is already running."""
         with self._lock:
             if self._busy:
+                self._pending = True
                 return False
             self._busy = True
             self._error = None
@@ -33,12 +37,17 @@ class RenderWorker:
             return {"busy": self._busy, "error": self._error}
 
     def _run(self) -> None:
-        error = None
-        try:
-            self._render()
-        except Exception as exc:
-            error = str(exc)
-        finally:
+        while True:
+            error = None
+            try:
+                self._render()
+            except Exception as exc:
+                error = str(exc)
+
             with self._lock:
                 self._error = error
+                if self._pending:
+                    self._pending = False
+                    continue
                 self._busy = False
+                return

@@ -182,6 +182,13 @@ def test_thumb_returns_placeholder_when_the_cache_fails(tmp_path):
     assert resp.status_code == 404  # must not be a 500
 
 
+def test_thumb_is_cacheable_by_the_browser(tmp_path):
+    """A 200-tile grid must not re-fetch every tile from the Pi on every visit."""
+    app = create_app(FakeImmich(), _cfg(tmp_path), FakeWorker(), FakeThumbs())
+    resp = app.test_client().get("/thumb/t1")
+    assert "max-age" in resp.headers.get("Cache-Control", "")
+
+
 def test_index_is_never_cached(tmp_path):
     """The page carries live state (busy, selected album). A cached copy shows a
     stale 'loading' banner forever, because the reload serves the cache too."""
@@ -253,6 +260,15 @@ def test_album_screen_survives_immich_being_unreachable(tmp_path):
     resp = app.test_client().get("/album/a1")
     assert resp.status_code == 200
     assert "Fotos sind gerade nicht erreichbar" in resp.get_data(as_text=True)
+
+
+def test_album_screen_shows_a_friendly_message_when_the_last_render_failed(tmp_path, image_assets):
+    immich = FakeImmich(albums=[Album("a1", "Urlaub", "t1")], assets=image_assets)
+    app = create_app(immich, _cfg(tmp_path), FakeWorker(error="immich down"), FakeThumbs())
+    body = app.test_client().get("/album/a1").get_data(as_text=True)
+    assert "Bild konnte nicht geladen werden" in body
+    # the raw technical error must not be shown to a non-technical reader
+    assert "immich down" not in body
 
 
 def test_album_screen_is_translated(tmp_path, image_assets):

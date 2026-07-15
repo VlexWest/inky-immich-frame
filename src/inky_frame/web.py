@@ -176,6 +176,8 @@ ALBUM_PAGE = """<!doctype html><html lang="{{ lang }}"><head>
 
 {% if offline %}
 <div class="note failed">{{ t.offline }}</div>
+{% elif error %}
+<div class="note failed">{{ t.failed }}</div>
 {% endif %}
 
 <form class="rotate" method="post" action="/select">
@@ -339,6 +341,7 @@ def create_app(immich: ImmichClient, config: Config, worker, thumbs) -> Flask:
         except Exception:
             # A missing thumbnail must degrade to a blank tile, not a 500.
             return Response(status=404)
-        return Response(data, mimetype="image/jpeg")
+        return Response(data, mimetype="image/jpeg",
+                         headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
     return app
