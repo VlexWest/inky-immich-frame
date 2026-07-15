@@ -111,11 +111,48 @@ On Trixie, comitup is packaged — no `.deb` download needed:
 ```bash
 sudo apt install -y comitup
 ```
-- Set the hotspot name in `/etc/comitup.conf`: `ap_name: InkyPi-Setup`
-- Comitup manages Wi-Fi via NetworkManager. On Trixie the image ships a
-  netplan-rendered NetworkManager connection (`netplan-wlan0-<SSID>`); confirm the
-  existing Wi-Fi still connects with comitup active, and if not, join once through the
-  `InkyPi-Setup` hotspot so comitup stores the network itself.
+
+**Verified on Trixie:** comitup coexists with the netplan-rendered NetworkManager
+connection (`netplan-wlan0-<SSID>`). It adopts it — `comitup-cli` reports
+`State: CONNECTED, Connection: <SSID>` — and survives a reboot without touching it.
+
+### Name the hotspot
+```bash
+sudo sed -i '/^# *ap_name:/a ap_name: MyFrame-Setup' /etc/comitup.conf
+```
+Comitup creates its hotspot NM connection **at install time**, using the name that
+was configured then. If you set `ap_name` afterwards, delete the stale connection so
+it gets recreated:
+```bash
+sudo nmcli connection delete comitup-<nnn>-0000
+sudo systemctl restart comitup
+nmcli -g 802-11-wireless.ssid connection show MyFrame-Setup-0000   # verify
+```
+
+### Give the portal port 80 (required)
+comitup serves its setup portal on port 80 — **the same port this app uses**. Without
+this, hotspot mode shows the app (which cannot reach the server anyway) instead of the
+wifi portal, and the phone never gets a captive-portal prompt.
+
+```bash
+sudo cp deploy/comitup-callback /usr/local/bin/comitup-callback
+sudo chmod +x /usr/local/bin/comitup-callback
+sudo sed -i '/^# *external_callback:/a external_callback: /usr/local/bin/comitup-callback' /etc/comitup.conf
+sudo systemctl restart comitup
+```
+The callback stops `inky-frame` in `HOTSPOT` state and starts it again on `CONNECTED`.
+
+### Testing the fallback
+Downing the connection (`nmcli connection down …`) does **not** test this: comitup
+just reconnects, which is correct behaviour. To reach hotspot mode the network has to
+be genuinely unknown. Delete the connection, and restore it afterwards from netplan:
+```bash
+sudo nmcli connection delete netplan-wlan0-<SSID>   # hotspot must now come up and stay
+# ... test the portal at 10.41.0.1 ...
+sudo netplan apply                                   # restores the connection
+```
+Back up `/etc/netplan/` first — on Trixie the wifi credentials live there, **not** in
+`/etc/NetworkManager/system-connections/` (which is empty).
 
 ## Acceptance checklist (bench test before deploying)
 1. Boot → SSH works; Tailscale node visible, key expiry disabled.

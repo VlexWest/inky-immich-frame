@@ -21,13 +21,16 @@ class FakeImmich:
     """Duck-typed stand-in for ImmichClient."""
 
     def __init__(self, assets=None, image_bytes=b"", fail_download=False,
-                 albums=None):
+                 albums=None, fail_list=False):
         self._assets = assets or []
         self._image_bytes = image_bytes
         self._fail_download = fail_download
         self._albums = albums or []
+        self._fail_list = fail_list
 
     def list_albums(self):
+        if self._fail_list:
+            raise RuntimeError("immich unreachable")
         return self._albums
 
     def get_album_assets(self, album_id):

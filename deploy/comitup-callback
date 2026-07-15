@@ -1,0 +1,24 @@
+#!/bin/bash
+# comitup external_callback — install to /usr/local/bin/comitup-callback and set
+#   external_callback: /usr/local/bin/comitup-callback
+# in /etc/comitup.conf.
+#
+# Why this exists: comitup serves its wifi-setup portal on port 80, and so does
+# this app. They cannot both have it. When the frame drops into hotspot mode the
+# portal is the only thing that matters — the picker has no server to talk to
+# anyway — so the app steps aside and takes port 80 back once wifi returns.
+#
+# comitup passes the new state as $1: HOTSPOT | CONNECTING | CONNECTED
+
+case "$1" in
+  HOTSPOT)
+    logger -t comitup-callback "hotspot mode: stopping inky-frame to free port 80"
+    systemctl stop inky-frame
+    ;;
+  CONNECTED)
+    logger -t comitup-callback "connected: starting inky-frame"
+    systemctl start inky-frame
+    ;;
+esac
+
+exit 0

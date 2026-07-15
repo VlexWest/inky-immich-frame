@@ -16,6 +16,7 @@ LANGUAGES = {
         "loading": "Neues Bild wird geladen – das dauert etwa eine Minute.",
         "failed": "Bild konnte nicht geladen werden. Das letzte Bild bleibt stehen.",
         "refresh": "Neues Bild jetzt zeigen",
+        "offline": "Die Fotos sind gerade nicht erreichbar. Das Bild im Rahmen bleibt stehen.",
     },
     "en": {
         "label": "English",
@@ -24,6 +25,7 @@ LANGUAGES = {
         "loading": "Loading a new picture – this takes about a minute.",
         "failed": "Could not load a picture. The last one stays on screen.",
         "refresh": "Show a new picture now",
+        "offline": "The photos are not reachable right now. The picture in the frame stays as it is.",
     },
     "ru": {
         "label": "Русский",
@@ -32,6 +34,7 @@ LANGUAGES = {
         "loading": "Загружается новое фото – это займёт около минуты.",
         "failed": "Не удалось загрузить фото. Останется предыдущее.",
         "refresh": "Показать новое фото",
+        "offline": "Фотографии сейчас недоступны. Фото в рамке останется прежним.",
     },
 }
 
@@ -76,7 +79,9 @@ PAGE = """<!doctype html><html lang="{{ lang }}"><head>
  <span>{{ t.loading }}</span>
 </div>
 
-{% if error %}
+{% if offline %}
+<div class="note failed">{{ t.offline }}</div>
+{% elif error %}
 <div class="note failed">{{ t.failed }}</div>
 {% endif %}
 
@@ -155,12 +160,24 @@ def create_app(immich: ImmichClient, config: Config, worker) -> Flask:
         lang = get_language(config.state_file)
         if lang not in LANGUAGES:
             lang = DEFAULT_LANGUAGE
+
+        # The server may be down or the wifi broken — the picker still has to
+        # answer. It is the only screen the recipient has.
+        try:
+            albums = immich.list_albums()
+            offline = False
+        except Exception:
+            app.logger.exception("could not list albums")
+            albums = []
+            offline = True
+
         return render_template_string(
             PAGE,
-            albums=immich.list_albums(),
+            albums=albums,
             selected=get_selected_album(config.state_file),
             busy=status["busy"],
             error=status["error"],
+            offline=offline,
             lang=lang,
             t=LANGUAGES[lang],
             languages=LANGUAGES,
@@ -190,7 +207,11 @@ def create_app(immich: ImmichClient, config: Config, worker) -> Flask:
 
     @app.get("/thumb/<asset_id>")
     def thumb(asset_id):
-        data = immich.download_asset(asset_id, size="thumbnail")
+        try:
+            data = immich.download_asset(asset_id, size="thumbnail")
+        except Exception:
+            # A missing thumbnail must degrade to a blank tile, not a 500.
+            return Response(status=404)
         return Response(data, mimetype="image/jpeg")
 
     return app

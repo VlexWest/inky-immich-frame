@@ -141,3 +141,30 @@ def test_language_choice_survives_picking_an_album(tmp_path):
     client.post("/select", data={"album_id": "a9"})
     assert get_language(cfg.state_file) == "ru"
     assert get_selected_album(cfg.state_file) == "a9"
+
+
+def test_index_survives_immich_being_unreachable(tmp_path):
+    """The frame lives on a home network; the server it pulls from may be down,
+    or the wifi may be broken. The picker must still answer, not 500."""
+    app = create_app(FakeImmich(fail_list=True), _cfg(tmp_path), FakeWorker())
+    resp = app.test_client().get("/")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "Fotos sind gerade nicht erreichbar" in body
+    # no raw exception text leaks to a non-technical reader
+    assert "immich unreachable" not in body
+    assert "Traceback" not in body
+
+
+def test_offline_message_is_translated(tmp_path):
+    cfg = _cfg(tmp_path)
+    client = create_app(FakeImmich(fail_list=True), cfg, FakeWorker()).test_client()
+    client.post("/language", data={"lang": "ru"})
+    body = client.get("/").get_data(as_text=True)
+    assert "Фотографии сейчас недоступны" in body
+
+
+def test_thumb_returns_placeholder_when_immich_is_down(tmp_path):
+    app = create_app(FakeImmich(fail_download=True), _cfg(tmp_path), FakeWorker())
+    resp = app.test_client().get("/thumb/t1")
+    assert resp.status_code in (200, 404)  # must not be a 500
