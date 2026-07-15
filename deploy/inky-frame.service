@@ -5,10 +5,14 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# Replace pi/ with your username and home directory if they differ.
 User=pi
 WorkingDirectory=/home/pi/inky-immich-frame
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/home/pi/inky-immich-frame/.venv/bin/python -m inky_frame.app --config /home/pi/inky-immich-frame/config.yaml
+# Port 80 so the picker is reachable at http://<hostname>.local with no port to
+# type. Binding it as a non-root user needs this capability.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+ExecStart=/home/pi/inky-immich-frame/.venv/bin/python -m inky_frame.app --config /home/pi/inky-immich-frame/config.yaml --port 80
 Restart=on-failure
 RestartSec=10
 

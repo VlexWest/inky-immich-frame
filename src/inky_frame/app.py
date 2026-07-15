@@ -6,6 +6,7 @@ from .immich import ImmichClient
 from .renderer import Renderer
 from .scheduler import build_scheduler
 from .web import create_app
+from .worker import RenderWorker
 
 
 def main() -> None:
@@ -20,15 +21,14 @@ def main() -> None:
     display = InkyDisplay(saturation=config.saturation)
     renderer = Renderer(immich, display, config)
 
-    scheduler = build_scheduler(config.refresh_times, renderer.render_once)
+    worker = RenderWorker(renderer.render_once)
+
+    scheduler = build_scheduler(config.refresh_times, worker.request)
     scheduler.start()
 
-    try:
-        renderer.render_once()  # render immediately on boot
-    except Exception as exc:  # keep serving even if the first render fails
-        print(f"initial render failed: {exc}")
+    worker.request()  # first picture on boot, without delaying the page
 
-    app = create_app(immich, config, on_refresh=renderer.render_once)
+    app = create_app(immich, config, worker)
     app.run(host=args.host, port=args.port)
 
 
