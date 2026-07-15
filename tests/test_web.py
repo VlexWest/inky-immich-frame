@@ -278,3 +278,13 @@ def test_album_screen_is_translated(tmp_path, image_assets):
     client.post("/language", data={"lang": "ru"})
     body = client.get("/album/a1").get_data(as_text=True)
     assert "Пусть фото меняются" in body
+
+
+def test_hidden_attribute_actually_hides(tmp_path):
+    """The loading banner sets display:flex. An author display rule beats the
+    UA stylesheet's [hidden]{display:none}, so without an explicit guard the
+    banner stays on screen forever no matter what the state says."""
+    app = create_app(FakeImmich(), _cfg(tmp_path), FakeWorker(), FakeThumbs())
+    for path in ("/", "/album/a1"):
+        body = app.test_client().get(path).get_data(as_text=True)
+        assert "[hidden]{display:none !important}" in body, f"{path} lacks the guard"

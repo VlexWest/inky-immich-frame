@@ -61,6 +61,7 @@ PAGE = """<!doctype html><html lang="{{ lang }}"><head>
  .card img{width:100%;height:120px;object-fit:cover;display:block;background:#eee}
  .card .name{padding:.5rem;font-size:.95rem}
  a.pick{display:block;text-decoration:none;color:inherit}
+ [hidden]{display:none !important}
  .note{padding:.8rem 1rem;border-radius:12px;margin-bottom:1rem;font-size:1rem}
  .loading{background:#fff5d6;border:1px solid #e8cf7a;display:flex;align-items:center;gap:.6rem}
  .failed{background:#ffe9e6;border:1px solid #f0b3aa}
@@ -158,6 +159,7 @@ ALBUM_PAGE = """<!doctype html><html lang="{{ lang }}"><head>
  form.pick button{all:unset;display:block;cursor:pointer;width:100%}
  form.rotate button{font-size:1.05rem;padding:.8rem 1rem;border:0;border-radius:12px;
    background:#3aa675;color:#fff;width:100%}
+ [hidden]{display:none !important}
  .note{padding:.8rem 1rem;border-radius:12px;margin-bottom:1rem;font-size:1rem}
  .loading{background:#fff5d6;border:1px solid #e8cf7a;display:flex;align-items:center;gap:.6rem}
  .failed{background:#ffe9e6;border:1px solid #f0b3aa}
