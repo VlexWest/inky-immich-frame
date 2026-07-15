@@ -132,3 +132,50 @@ def test_scheduled_render_runs_when_rotating(tmp_path):
     w = FakeWorker()
     assert request_scheduled_render(r, w) is True
     assert w.requests == 1
+
+
+def _striped_jpeg(w, h):
+    """A photo with a distinctive band at the very top and very bottom.
+    A cover-crop of a portrait eats both; a contain-fit must keep them."""
+    import io
+    from PIL import Image, ImageDraw
+    img = Image.new("RGB", (w, h), (40, 90, 160))
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 0, w, h // 12], fill=(255, 0, 0))            # top band
+    d.rectangle([0, h - h // 12, w, h], fill=(0, 200, 0))        # bottom band
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=95)
+    return buf.getvalue()
+
+
+def _has_colour(img, want, tol=60):
+    for px in img.convert("RGB").getcolors(maxcolors=1 << 24) or []:
+        if all(abs(c - t) < tol for c, t in zip(px[1], want)):
+            return True
+    return False
+
+
+def test_a_portrait_photo_is_never_cropped():
+    """The panel is landscape. A portrait photo cannot fill it without losing
+    something, and what it loses is faces - so nothing is cut at all."""
+    img = process_image(_striped_jpeg(480, 800), 800, 480)
+    assert img.size == (800, 480)
+    assert _has_colour(img, (255, 0, 0)), "top of the photo was cropped away"
+    assert _has_colour(img, (0, 200, 0)), "bottom of the photo was cropped away"
+
+
+def test_a_portrait_photo_gets_white_bars_not_stretched():
+    img = process_image(_striped_jpeg(480, 800), 800, 480)
+    # the outer edges are the mat...
+    assert img.getpixel((2, 240)) == (255, 255, 255)
+    assert img.getpixel((797, 240)) == (255, 255, 255)
+    # ...and the photo keeps its shape: its top band sits at the top, not stretched
+    assert _has_colour(img, (255, 0, 0))
+
+
+def test_a_landscape_photo_still_fills_the_panel():
+    """5:3 is close to the panel's 5:3 - it should use the full width."""
+    img = process_image(_striped_jpeg(1000, 600), 800, 480)
+    assert img.size == (800, 480)
+    assert img.getpixel((400, 240)) != (255, 255, 255)
+    assert img.getpixel((2, 240)) != (255, 255, 255)

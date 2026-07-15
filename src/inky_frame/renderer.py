@@ -10,11 +10,22 @@ from .display import Display
 from .immich import Asset, ImmichClient
 
 
+MAT_COLOUR = (255, 255, 255)
+
+
 def process_image(data: bytes, width: int, height: int) -> Image.Image:
+    """Fit the whole photo onto the panel, padding what's left over.
+
+    The panel is landscape; a portrait photo cannot fill it without losing
+    height, and the height it loses is where faces are. So nothing is cropped —
+    the leftover becomes a white mat, the way a real picture frame does it.
+    """
     img = Image.open(io.BytesIO(data))
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
-    return ImageOps.fit(img, (width, height), method=Image.LANCZOS)
+    return ImageOps.pad(
+        img, (width, height), method=Image.LANCZOS, color=MAT_COLOUR
+    )
 
 
 def pick_asset(assets: list[Asset], rng: random.Random) -> Asset | None:
