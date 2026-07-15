@@ -1,6 +1,7 @@
 import json
 from inky_frame.config import (
     Config, load_config, get_selected_album, set_selected_album,
+    get_language, set_language,
 )
 
 
@@ -23,3 +24,26 @@ def test_selected_album_roundtrip(tmp_path):
     set_selected_album(sf, "album-123")
     assert get_selected_album(sf) == "album-123"
     assert json.loads(open(sf).read())["album_id"] == "album-123"
+
+
+def test_language_defaults_to_german(tmp_path):
+    assert get_language(str(tmp_path / "nope.json")) == "de"
+
+
+def test_language_roundtrip(tmp_path):
+    sf = str(tmp_path / "state.json")
+    set_language(sf, "ru")
+    assert get_language(sf) == "ru"
+
+
+def test_language_and_album_do_not_clobber_each_other(tmp_path):
+    sf = str(tmp_path / "state.json")
+    set_selected_album(sf, "album-123")
+    set_language(sf, "ru")
+    assert get_selected_album(sf) == "album-123"
+    assert get_language(sf) == "ru"
+
+    # and the other way round: picking an album must keep the language
+    set_selected_album(sf, "album-456")
+    assert get_language(sf) == "ru"
+    assert get_selected_album(sf) == "album-456"

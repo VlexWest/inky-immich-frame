@@ -1,6 +1,6 @@
 import json
 
-from inky_frame.config import Config, get_selected_album
+from inky_frame.config import Config, get_language, get_selected_album
 from inky_frame.immich import Album
 from inky_frame.web import create_app
 from tests.conftest import FakeImmich
@@ -91,3 +91,53 @@ def test_thumb_proxies_immich_bytes(tmp_path):
     resp = app.test_client().get("/thumb/t1")
     assert resp.status_code == 200
     assert resp.data == b"IMGBYTES"
+
+
+def test_page_is_german_by_default(tmp_path):
+    app = create_app(FakeImmich(), _cfg(tmp_path), FakeWorker())
+    body = app.test_client().get("/").get_data(as_text=True)
+    assert "Welches Album soll gezeigt werden?" in body
+    assert '<html lang="de"' in body
+
+
+def test_language_switch_persists_and_renders_russian(tmp_path):
+    cfg = _cfg(tmp_path)
+    client = create_app(FakeImmich(), cfg, FakeWorker()).test_client()
+    resp = client.post("/language", data={"lang": "ru"})
+    assert resp.status_code in (302, 303)
+    assert get_language(cfg.state_file) == "ru"
+    body = client.get("/").get_data(as_text=True)
+    assert "Какой альбом показывать?" in body
+    assert '<html lang="ru"' in body
+
+
+def test_language_switch_to_english(tmp_path):
+    cfg = _cfg(tmp_path)
+    client = create_app(FakeImmich(), cfg, FakeWorker()).test_client()
+    client.post("/language", data={"lang": "en"})
+    body = client.get("/").get_data(as_text=True)
+    assert "Which album should be shown?" in body
+
+
+def test_unknown_language_is_ignored(tmp_path):
+    cfg = _cfg(tmp_path)
+    client = create_app(FakeImmich(), cfg, FakeWorker()).test_client()
+    client.post("/language", data={"lang": "../etc/passwd"})
+    assert get_language(cfg.state_file) == "de"
+    assert "Welches Album soll gezeigt werden?" in client.get("/").get_data(as_text=True)
+
+
+def test_switcher_offers_all_three_languages(tmp_path):
+    app = create_app(FakeImmich(), _cfg(tmp_path), FakeWorker())
+    body = app.test_client().get("/").get_data(as_text=True)
+    for label in ("Deutsch", "English", "Русский"):
+        assert label in body
+
+
+def test_language_choice_survives_picking_an_album(tmp_path):
+    cfg = _cfg(tmp_path)
+    client = create_app(FakeImmich(), cfg, FakeWorker()).test_client()
+    client.post("/language", data={"lang": "ru"})
+    client.post("/select", data={"album_id": "a9"})
+    assert get_language(cfg.state_file) == "ru"
+    assert get_selected_album(cfg.state_file) == "a9"

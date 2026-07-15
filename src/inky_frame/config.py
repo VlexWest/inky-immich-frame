@@ -23,15 +23,38 @@ def load_config(path: str) -> Config:
     return Config(**data)
 
 
-def get_selected_album(state_file: str) -> str | None:
+DEFAULT_LANGUAGE = "de"
+
+
+def _read_state(state_file: str) -> dict:
     try:
         with open(state_file) as f:
-            return json.load(f).get("album_id")
-    except FileNotFoundError:
-        return None
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _update_state(state_file: str, **values) -> None:
+    """Merge values into the state file. The album and the language live in the
+    same file, so a plain overwrite would drop whichever wasn't being set."""
+    state = _read_state(state_file)
+    state.update(values)
+    os.makedirs(os.path.dirname(state_file) or ".", exist_ok=True)
+    with open(state_file, "w") as f:
+        json.dump(state, f)
+
+
+def get_selected_album(state_file: str) -> str | None:
+    return _read_state(state_file).get("album_id")
 
 
 def set_selected_album(state_file: str, album_id: str) -> None:
-    os.makedirs(os.path.dirname(state_file) or ".", exist_ok=True)
-    with open(state_file, "w") as f:
-        json.dump({"album_id": album_id}, f)
+    _update_state(state_file, album_id=album_id)
+
+
+def get_language(state_file: str) -> str:
+    return _read_state(state_file).get("language", DEFAULT_LANGUAGE)
+
+
+def set_language(state_file: str, language: str) -> None:
+    _update_state(state_file, language=language)

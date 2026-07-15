@@ -2,12 +2,43 @@ from flask import (
     Flask, Response, jsonify, redirect, render_template_string, request, url_for,
 )
 
-from .config import Config, get_selected_album, set_selected_album
+from .config import (
+    Config, DEFAULT_LANGUAGE, get_language, get_selected_album, set_language,
+    set_selected_album,
+)
 from .immich import ImmichClient
 
-PAGE = """<!doctype html><html><head>
+LANGUAGES = {
+    "de": {
+        "label": "Deutsch",
+        "title": "Bilderrahmen",
+        "heading": "Welches Album soll gezeigt werden?",
+        "loading": "Neues Bild wird geladen – das dauert etwa eine Minute.",
+        "failed": "Bild konnte nicht geladen werden. Das letzte Bild bleibt stehen.",
+        "refresh": "Neues Bild jetzt zeigen",
+    },
+    "en": {
+        "label": "English",
+        "title": "Photo frame",
+        "heading": "Which album should be shown?",
+        "loading": "Loading a new picture – this takes about a minute.",
+        "failed": "Could not load a picture. The last one stays on screen.",
+        "refresh": "Show a new picture now",
+    },
+    "ru": {
+        "label": "Русский",
+        "title": "Фоторамка",
+        "heading": "Какой альбом показывать?",
+        "loading": "Загружается новое фото – это займёт около минуты.",
+        "failed": "Не удалось загрузить фото. Останется предыдущее.",
+        "refresh": "Показать новое фото",
+    },
+}
+
+PAGE = """<!doctype html><html lang="{{ lang }}"><head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bilderrahmen</title>
+<title>{{ t.title }}</title>
 <style>
  body{font-family:system-ui,sans-serif;margin:0;padding:1rem;background:#faf9f7;color:#222}
  h1{font-size:1.3rem;margin:0 0 1rem}
@@ -30,16 +61,23 @@ PAGE = """<!doctype html><html><head>
  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
  body[data-busy="true"] .grid,body[data-busy="true"] form.now{opacity:.45}
  button[disabled]{cursor:default}
+ .langs{display:flex;justify-content:center;gap:.4rem;margin-top:2rem;
+   border-top:1px solid #e8e6df;padding-top:1rem}
+ .langs form{margin:0}
+ .langs button{all:unset;cursor:pointer;padding:.45rem .7rem;border-radius:8px;
+   font-size:.9rem;color:#5d6b62}
+ .langs button[aria-current="true"]{background:#eef3ef;color:#26483a;font-weight:600}
+ @media (prefers-reduced-motion: reduce){ .dot{animation:none} }
 </style></head><body data-busy="{{ 'true' if busy else 'false' }}">
-<h1>Welches Album soll gezeigt werden?</h1>
+<h1>{{ t.heading }}</h1>
 
 <div class="note loading" id="banner" {% if not busy %}hidden{% endif %}>
  <span class="dot"></span>
- <span>Neues Bild wird geladen &ndash; das dauert etwa eine Minute.</span>
+ <span>{{ t.loading }}</span>
 </div>
 
 {% if error %}
-<div class="note failed">Bild konnte nicht geladen werden. Das letzte Bild bleibt stehen.</div>
+<div class="note failed">{{ t.failed }}</div>
 {% endif %}
 
 <div class="grid">
@@ -57,8 +95,17 @@ PAGE = """<!doctype html><html><head>
 </div>
 
 <form class="now" method="post" action="/refresh">
- <button type="submit">Neues Bild jetzt zeigen</button>
+ <button type="submit">{{ t.refresh }}</button>
 </form>
+
+<nav class="langs">
+{% for code, strings in languages.items() %}
+ <form method="post" action="/language">
+  <input type="hidden" name="lang" value="{{ code }}">
+  <button type="submit" {% if code == lang %}aria-current="true"{% endif %}>{{ strings.label }}</button>
+ </form>
+{% endfor %}
+</nav>
 
 <script>
  var banner = document.getElementById("banner");
@@ -105,17 +152,30 @@ def create_app(immich: ImmichClient, config: Config, worker) -> Flask:
     @app.get("/")
     def index():
         status = worker.status()
+        lang = get_language(config.state_file)
+        if lang not in LANGUAGES:
+            lang = DEFAULT_LANGUAGE
         return render_template_string(
             PAGE,
             albums=immich.list_albums(),
             selected=get_selected_album(config.state_file),
             busy=status["busy"],
             error=status["error"],
+            lang=lang,
+            t=LANGUAGES[lang],
+            languages=LANGUAGES,
         )
 
     @app.get("/status")
     def status():
         return jsonify(worker.status())
+
+    @app.post("/language")
+    def language():
+        chosen = request.form.get("lang", "")
+        if chosen in LANGUAGES:
+            set_language(config.state_file, chosen)
+        return redirect(url_for("index"))
 
     @app.post("/select")
     def select():
