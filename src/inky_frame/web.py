@@ -154,6 +154,15 @@ def create_app(immich: ImmichClient, config: Config, worker) -> Flask:
     """
     app = Flask(__name__)
 
+    @app.after_request
+    def no_store(response):
+        # The page and /status carry live state. A cached copy strands the
+        # reader on a stale "loading" banner, and the reload serves the cache
+        # too, so it never clears. Thumbnails may cache — they never change.
+        if request.path != "/thumb" and not request.path.startswith("/thumb/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     @app.get("/")
     def index():
         status = worker.status()

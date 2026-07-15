@@ -168,3 +168,17 @@ def test_thumb_returns_placeholder_when_immich_is_down(tmp_path):
     app = create_app(FakeImmich(fail_download=True), _cfg(tmp_path), FakeWorker())
     resp = app.test_client().get("/thumb/t1")
     assert resp.status_code in (200, 404)  # must not be a 500
+
+
+def test_index_is_never_cached(tmp_path):
+    """The page carries live state (busy, selected album). A cached copy shows a
+    stale 'loading' banner forever, because the reload serves the cache too."""
+    app = create_app(FakeImmich(), _cfg(tmp_path), FakeWorker())
+    resp = app.test_client().get("/")
+    assert "no-store" in resp.headers.get("Cache-Control", "")
+
+
+def test_status_is_never_cached(tmp_path):
+    app = create_app(FakeImmich(), _cfg(tmp_path), FakeWorker())
+    resp = app.test_client().get("/status")
+    assert "no-store" in resp.headers.get("Cache-Control", "")
