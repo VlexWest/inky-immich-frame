@@ -59,6 +59,24 @@ sudo i2cdetect -y 1             # expect the panel EEPROM at 0x50
 > (~370 °C, chisel tip); the power and GND pins are hardest because the ground plane
 > sinks heat. No software setting can work around a joint that isn't connected.
 
+## 3b. Make `<hostname>.local` usable from a phone
+Avahi publishes AAAA records alongside A records. Phones and browsers then prefer
+IPv6 and get the Pi's **link-local** address (`fe80::…`), which a browser cannot open —
+it needs a zone id (`%iface`) that has no place in a URL. The name resolves, `ping`
+even works, and the browser still fails. Publish IPv4 only:
+
+```bash
+sudo sed -i 's/^#*use-ipv6=.*/use-ipv6=no/'                     /etc/avahi/avahi-daemon.conf
+sudo sed -i 's/^#*publish-aaaa-on-ipv4=.*/publish-aaaa-on-ipv4=no/' /etc/avahi/avahi-daemon.conf
+sudo sed -i 's/^#*publish-a-on-ipv6=.*/publish-a-on-ipv6=no/'   /etc/avahi/avahi-daemon.conf
+sudo systemctl restart avahi-daemon
+```
+`use-ipv6=no` alone is not enough — it only disables the IPv6 *transport*; avahi keeps
+publishing AAAA records over IPv4 mDNS unless `publish-aaaa-on-ipv4=no` is set.
+
+Verify from another machine: `ping <hostname>.local` must answer from the Pi's IPv4
+address, not from an `fe80::` one.
+
 ## 4. Tailscale (SSH support + Immich transport)
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
