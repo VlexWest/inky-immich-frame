@@ -49,7 +49,17 @@ def get_selected_album(state_file: str) -> str | None:
 
 
 def set_selected_album(state_file: str, album_id: str) -> None:
-    _update_state(state_file, album_id=album_id)
+    # Choosing an album is also how the reader resumes the rotation, so it
+    # releases whatever photo was pinned.
+    _update_state(state_file, album_id=album_id, pinned_asset_id=None)
+
+
+def get_pinned_asset(state_file: str) -> str | None:
+    return _read_state(state_file).get("pinned_asset_id")
+
+
+def set_pinned_asset(state_file: str, asset_id: str) -> None:
+    _update_state(state_file, pinned_asset_id=asset_id)
 
 
 def get_language(state_file: str) -> str:

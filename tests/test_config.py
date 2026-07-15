@@ -1,7 +1,7 @@
 import json
 from inky_frame.config import (
     Config, load_config, get_selected_album, set_selected_album,
-    get_language, set_language,
+    get_language, set_language, get_pinned_asset, set_pinned_asset,
 )
 
 
@@ -47,3 +47,33 @@ def test_language_and_album_do_not_clobber_each_other(tmp_path):
     set_selected_album(sf, "album-456")
     assert get_language(sf) == "ru"
     assert get_selected_album(sf) == "album-456"
+
+
+def test_pinned_asset_defaults_to_none(tmp_path):
+    assert get_pinned_asset(str(tmp_path / "nope.json")) is None
+
+
+def test_pinned_asset_roundtrip(tmp_path):
+    sf = str(tmp_path / "state.json")
+    set_pinned_asset(sf, "asset-1")
+    assert get_pinned_asset(sf) == "asset-1"
+
+
+def test_selecting_an_album_clears_the_pin(tmp_path):
+    """Tapping an album is how the reader gets back to a rotating frame."""
+    sf = str(tmp_path / "state.json")
+    set_selected_album(sf, "album-1")
+    set_pinned_asset(sf, "asset-1")
+    set_selected_album(sf, "album-2")
+    assert get_selected_album(sf) == "album-2"
+    assert get_pinned_asset(sf) is None
+
+
+def test_pinning_keeps_album_and_language(tmp_path):
+    sf = str(tmp_path / "state.json")
+    set_selected_album(sf, "album-1")
+    set_language(sf, "ru")
+    set_pinned_asset(sf, "asset-1")
+    assert get_selected_album(sf) == "album-1"
+    assert get_language(sf) == "ru"
+    assert get_pinned_asset(sf) == "asset-1"
