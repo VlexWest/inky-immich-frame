@@ -3,10 +3,10 @@ import random
 import pytest
 from PIL import Image
 
-from inky_frame.config import Config, set_selected_album
+from inky_frame.config import Config, set_selected_album, set_pinned_asset
 from inky_frame.display import FakeDisplay
 from inky_frame.immich import Asset
-from inky_frame.renderer import process_image, pick_asset, Renderer
+from inky_frame.renderer import process_image, pick_asset, Renderer, request_scheduled_render
 from tests.conftest import FakeImmich, make_jpeg_bytes
 
 
@@ -65,3 +65,70 @@ def test_render_once_raises_when_failure_and_no_cache(tmp_path, image_assets):
     r = Renderer(FakeImmich(assets=image_assets, fail_download=True), FakeDisplay(), cfg)
     with pytest.raises(Exception):
         r.render_once()
+
+
+class FakeWorker:
+    def __init__(self):
+        self.requests = 0
+
+    def request(self):
+        self.requests += 1
+        return True
+
+
+class RecordingImmich(FakeImmich):
+    """Remembers which asset was actually downloaded."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.downloaded = []
+
+    def download_asset(self, asset_id, size="preview"):
+        self.downloaded.append(asset_id)
+        return super().download_asset(asset_id, size=size)
+
+
+def test_render_once_renders_the_pinned_asset(tmp_path, image_assets):
+    cfg = _config(tmp_path)
+    set_selected_album(cfg.state_file, "album-1")
+    set_pinned_asset(cfg.state_file, "i2")
+    immich = RecordingImmich(assets=image_assets, image_bytes=make_jpeg_bytes())
+    r = Renderer(immich, FakeDisplay(), cfg, rng=random.Random(0))
+    assert r.render_once() is True
+    assert immich.downloaded == ["i2"]
+
+
+def test_render_once_picks_at_random_when_nothing_is_pinned(tmp_path, image_assets):
+    cfg = _config(tmp_path)
+    set_selected_album(cfg.state_file, "album-1")
+    immich = RecordingImmich(assets=image_assets, image_bytes=make_jpeg_bytes())
+    r = Renderer(immich, FakeDisplay(), cfg, rng=random.Random(0))
+    r.render_once()
+    assert immich.downloaded[0] in {"i1", "i2"}
+
+
+def test_is_pinned_reflects_state(tmp_path):
+    cfg = _config(tmp_path)
+    r = Renderer(FakeImmich(), FakeDisplay(), cfg)
+    assert r.is_pinned() is False
+    set_pinned_asset(cfg.state_file, "i1")
+    assert r.is_pinned() is True
+
+
+def test_scheduled_render_skips_while_pinned(tmp_path):
+    """Redrawing an identical image costs 40s and e-ink cycles for nothing."""
+    cfg = _config(tmp_path)
+    set_pinned_asset(cfg.state_file, "i1")
+    r = Renderer(FakeImmich(), FakeDisplay(), cfg)
+    w = FakeWorker()
+    assert request_scheduled_render(r, w) is False
+    assert w.requests == 0
+
+
+def test_scheduled_render_runs_when_rotating(tmp_path):
+    cfg = _config(tmp_path)
+    set_selected_album(cfg.state_file, "album-1")
+    r = Renderer(FakeImmich(), FakeDisplay(), cfg)
+    w = FakeWorker()
+    assert request_scheduled_render(r, w) is True
+    assert w.requests == 1

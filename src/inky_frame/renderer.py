@@ -5,7 +5,7 @@ import threading
 
 from PIL import Image, ImageOps
 
-from .config import Config, get_selected_album
+from .config import Config, get_pinned_asset, get_selected_album
 from .display import Display
 from .immich import Asset, ImmichClient
 
@@ -22,6 +22,18 @@ def pick_asset(assets: list[Asset], rng: random.Random) -> Asset | None:
     if not images:
         return None
     return rng.choice(images)
+
+
+def request_scheduled_render(renderer: "Renderer", worker) -> bool:
+    """Scheduler entry point.
+
+    While a photo is pinned the frame is meant to stay put, so the scheduled
+    render is skipped rather than redrawing the identical image.
+    """
+    if renderer.is_pinned():
+        return False
+    worker.request()
+    return True
 
 
 class Renderer:
@@ -42,6 +54,9 @@ class Renderer:
         os.makedirs(self.config.cache_dir, exist_ok=True)
         return os.path.join(self.config.cache_dir, "last.png")
 
+    def is_pinned(self) -> bool:
+        return get_pinned_asset(self.config.state_file) is not None
+
     def render_once(self) -> bool:
         with self._lock:
             cache_path = self._cache_path()
@@ -49,11 +64,16 @@ class Renderer:
                 album_id = get_selected_album(self.config.state_file)
                 if not album_id:
                     raise RuntimeError("no album selected")
-                assets = self.immich.get_album_assets(album_id)
-                asset = pick_asset(assets, self.rng)
-                if asset is None:
-                    raise RuntimeError("album has no images")
-                data = self.immich.download_asset(asset.id, size="preview")
+                pinned = get_pinned_asset(self.config.state_file)
+                if pinned:
+                    asset_id = pinned
+                else:
+                    assets = self.immich.get_album_assets(album_id)
+                    asset = pick_asset(assets, self.rng)
+                    if asset is None:
+                        raise RuntimeError("album has no images")
+                    asset_id = asset.id
+                data = self.immich.download_asset(asset_id, size="preview")
                 img = process_image(data, self.config.width, self.config.height)
                 img.save(cache_path)
             except Exception:
