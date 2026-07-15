@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import respx
 from inky_frame.immich import ImmichClient, Album, Asset
@@ -22,18 +24,45 @@ def test_list_albums_parses_and_sends_key():
 
 
 @respx.mock
-def test_get_album_assets_filters_shape():
-    respx.get(f"{BASE}/api/albums/a1").mock(
+def test_get_album_assets_queries_search_metadata_for_the_album():
+    route = respx.post(f"{BASE}/api/search/metadata").mock(
         return_value=httpx.Response(200, json={
-            "id": "a1",
-            "assets": [
-                {"id": "i1", "type": "IMAGE"},
-                {"id": "v1", "type": "VIDEO"},
-            ],
+            "assets": {
+                "items": [
+                    {"id": "i1", "type": "IMAGE"},
+                    {"id": "v1", "type": "VIDEO"},
+                ],
+                "total": 2,
+                "count": 2,
+                "nextPage": None,
+            },
         })
     )
     assets = ImmichClient(BASE, "k").get_album_assets("a1")
     assert assets == [Asset(id="i1", type="IMAGE"), Asset(id="v1", type="VIDEO")]
+    body = json.loads(route.calls.last.request.content)
+    assert body["albumIds"] == ["a1"]
+    assert route.calls.last.request.headers["x-api-key"] == "k"
+
+
+@respx.mock
+def test_get_album_assets_follows_next_page():
+    route = respx.post(f"{BASE}/api/search/metadata").mock(
+        side_effect=[
+            httpx.Response(200, json={"assets": {
+                "items": [{"id": "i1", "type": "IMAGE"}],
+                "total": 2, "count": 1, "nextPage": 2,
+            }}),
+            httpx.Response(200, json={"assets": {
+                "items": [{"id": "i2", "type": "IMAGE"}],
+                "total": 2, "count": 1, "nextPage": None,
+            }}),
+        ]
+    )
+    assets = ImmichClient(BASE, "k").get_album_assets("a1")
+    assert assets == [Asset(id="i1", type="IMAGE"), Asset(id="i2", type="IMAGE")]
+    assert len(route.calls) == 2
+    assert json.loads(route.calls[1].request.content)["page"] == 2
 
 
 @respx.mock

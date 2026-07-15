@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 import httpx
 
+PAGE_SIZE = 1000
+
 
 @dataclass
 class Album:
@@ -38,14 +40,29 @@ class ImmichClient:
         ]
 
     def get_album_assets(self, album_id: str) -> list[Asset]:
-        r = self._client.get(
-            f"{self.base_url}/api/albums/{album_id}", headers=self._headers()
-        )
-        r.raise_for_status()
-        return [
-            Asset(id=a["id"], type=a.get("type", "IMAGE"))
-            for a in r.json().get("assets", [])
-        ]
+        """List an album's assets.
+
+        Immich does not return album members inline on GET /api/albums/{id};
+        the search endpoint is what enumerates them, one page at a time.
+        """
+        assets: list[Asset] = []
+        page = 1
+        while True:
+            r = self._client.post(
+                f"{self.base_url}/api/search/metadata",
+                headers=self._headers(),
+                json={"albumIds": [album_id], "size": PAGE_SIZE, "page": page},
+            )
+            r.raise_for_status()
+            block = r.json().get("assets", {})
+            assets.extend(
+                Asset(id=a["id"], type=a.get("type", "IMAGE"))
+                for a in block.get("items", [])
+            )
+            next_page = block.get("nextPage")
+            if not next_page:
+                return assets
+            page = int(next_page)
 
     def download_asset(self, asset_id: str, size: str = "preview") -> bytes:
         r = self._client.get(
