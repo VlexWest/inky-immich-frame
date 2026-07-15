@@ -3,7 +3,7 @@ import os
 import random
 import threading
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageFilter, ImageOps
 
 from .config import Config, get_pinned_asset, get_selected_album
 from .display import Display
@@ -11,18 +11,39 @@ from .immich import Asset, ImmichClient
 
 
 MAT_COLOUR = (255, 255, 255)
+BLUR_RADIUS = 8
 
 
-def process_image(data: bytes, width: int, height: int) -> Image.Image:
-    """Fit the whole photo onto the panel, padding what's left over.
+def _pad_blur(img: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Fill the leftover with a blurred, cropped copy of the photo itself."""
+    bkg = ImageOps.fit(img, size, method=Image.LANCZOS)
+    bkg = bkg.filter(ImageFilter.BoxBlur(BLUR_RADIUS))
+    fitted = ImageOps.contain(img, size, method=Image.LANCZOS)
+    bkg.paste(
+        fitted,
+        ((size[0] - fitted.size[0]) // 2, (size[1] - fitted.size[1]) // 2),
+    )
+    return bkg
+
+
+def process_image(
+    data: bytes, width: int, height: int, background: str = "white"
+) -> Image.Image:
+    """Fit the whole photo onto the panel, filling what's left over.
 
     The panel is landscape; a portrait photo cannot fill it without losing
-    height, and the height it loses is where faces are. So nothing is cropped —
-    the leftover becomes a white mat, the way a real picture frame does it.
+    height, and the height it loses is where faces are. So nothing is ever
+    cropped — the leftover is either a white mat, the way a real picture frame
+    does it, or a blurred copy of the photo behind it.
+
+    An unrecognised `background` falls back to the mat rather than raising: a
+    typo in config.yaml must not leave the frame blank.
     """
     img = Image.open(io.BytesIO(data))
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
+    if background == "blur":
+        return _pad_blur(img, (width, height))
     return ImageOps.pad(
         img, (width, height), method=Image.LANCZOS, color=MAT_COLOUR
     )
@@ -85,7 +106,10 @@ class Renderer:
                         raise RuntimeError("album has no images")
                     asset_id = asset.id
                 data = self.immich.download_asset(asset_id, size="preview")
-                img = process_image(data, self.config.width, self.config.height)
+                img = process_image(
+                    data, self.config.width, self.config.height,
+                    background=self.config.background,
+                )
                 img.save(cache_path)
             except Exception:
                 if not os.path.exists(cache_path):

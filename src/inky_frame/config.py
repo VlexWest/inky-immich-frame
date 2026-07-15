@@ -15,6 +15,10 @@ class Config:
     width: int = 800
     height: int = 480
     saturation: float = 0.5
+    # What fills the space around a photo that does not match the panel's
+    # shape: "white" (a mat, like a real frame) or "blur" (a blurred copy of
+    # the photo). Nothing is ever cropped either way.
+    background: str = "white"
 
 
 def load_config(path: str) -> Config:

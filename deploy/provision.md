@@ -121,6 +121,27 @@ The picker is then at `http://<hostname>.local` (port 80 — nothing to type aft
 name). A refresh takes ~40 s; the page shows a "loading" note and locks the buttons
 while it runs, so it never hangs the browser.
 
+## 6b. Nightly auto-update (optional)
+Lets the frame pull new commits itself. Weigh it up first: a broken push reaches the
+device unattended, and if the frame lives somewhere you can't easily get to, you are
+fixing it over SSH. It only restarts when something actually changed, and it restarts
+at night because a restart repaints the panel for ~40s.
+
+```bash
+sudo install -m 755 deploy/inky-frame-update /usr/local/bin/inky-frame-update
+sudo cp deploy/inky-frame-update.service deploy/inky-frame-update.timer /etc/systemd/system/
+# edit FRAME_USER / FRAME_DIR in the .service if yours differ from pi
+sudo systemctl daemon-reload
+sudo systemctl enable --now inky-frame-update.timer
+systemctl list-timers inky-frame-update.timer     # check the next run
+```
+Dry-run it once before trusting it: `sudo systemctl start inky-frame-update.service`,
+then `journalctl -t inky-frame-update -n 20`.
+
+The cost on a Pi Zero 2 W is a nightly `git fetch` — a few KB. It refuses to merge
+anything but a fast-forward, so a drifted checkout leaves a working frame rather than
+a half-resolved one.
+
 ## 7. Comitup (auto-hotspot Wi-Fi onboarding) — do this LAST
 Comitup takes over Wi-Fi management, so a mistake here can drop your SSH session.
 Do it once everything else is verified, with the device physically in reach.

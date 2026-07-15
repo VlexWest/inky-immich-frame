@@ -1,0 +1,12 @@
+[Unit]
+Description=Update Inky Immich Frame from git
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Replace pi/ with your username and home directory if they differ.
+Environment=FRAME_USER=pi
+Environment=FRAME_DIR=/home/pi/inky-immich-frame
+Environment=FRAME_BRANCH=main
+ExecStart=/usr/local/bin/inky-frame-update

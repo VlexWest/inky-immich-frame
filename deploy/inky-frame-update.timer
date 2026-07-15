@@ -1,0 +1,13 @@
+[Unit]
+Description=Nightly update check for the Inky Immich Frame
+
+[Timer]
+# Nightly: an update restarts the service, which repaints the panel for ~40s.
+# That should happen while nobody is looking at it.
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=30m
+# Deliberately NOT Persistent=true: a missed night must not fire the update —
+# and its visible repaint — at whatever daytime hour the frame next boots.
+
+[Install]
+WantedBy=timers.target

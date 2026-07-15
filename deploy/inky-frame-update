@@ -1,0 +1,52 @@
+#!/bin/bash
+# Pull the latest code and restart the frame — but only if something changed.
+#
+# Runs from inky-frame-update.timer, once a night. The check itself is a few KB
+# of git fetch, which is nothing even on a Pi Zero 2 W. The expensive part is
+# the restart: it repaints the panel, which takes ~40s and is visible. That is
+# why this runs while the household is asleep and does nothing at all when the
+# repo is already current.
+#
+# Runs as root (it restarts a system service) but touches the checkout as the
+# owning user, so the working tree never ends up half root-owned.
+
+set -euo pipefail
+
+DIR="${FRAME_DIR:-/home/pi/inky-immich-frame}"
+FRAME_USER="${FRAME_USER:-pi}"
+BRANCH="${FRAME_BRANCH:-main}"
+TAG="inky-frame-update"
+
+as_user() { runuser -u "$FRAME_USER" -- "$@"; }
+
+cd "$DIR"
+
+if ! as_user git fetch --quiet origin "$BRANCH"; then
+    logger -t "$TAG" "fetch failed (offline?) — leaving the frame alone"
+    exit 0
+fi
+
+local_sha=$(as_user git rev-parse HEAD)
+remote_sha=$(as_user git rev-parse "origin/$BRANCH")
+
+if [ "$local_sha" = "$remote_sha" ]; then
+    logger -t "$TAG" "already up to date (${local_sha:0:7})"
+    exit 0
+fi
+
+logger -t "$TAG" "updating ${local_sha:0:7} -> ${remote_sha:0:7}"
+
+# --ff-only: never invent a merge on the device. If the checkout has drifted,
+# stop and leave a working frame rather than resolving conflicts unattended.
+if ! as_user git merge --ff-only "origin/$BRANCH"; then
+    logger -t "$TAG" "cannot fast-forward — local changes? not touching the frame"
+    exit 1
+fi
+
+if ! as_user git diff --quiet "$local_sha" "$remote_sha" -- pyproject.toml; then
+    logger -t "$TAG" "dependencies changed, reinstalling"
+    as_user "$DIR/.venv/bin/pip" install -q -e ".[device]"
+fi
+
+systemctl restart inky-frame
+logger -t "$TAG" "updated to ${remote_sha:0:7} and restarted"

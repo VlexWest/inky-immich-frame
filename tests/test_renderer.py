@@ -179,3 +179,31 @@ def test_a_landscape_photo_still_fills_the_panel():
     assert img.size == (800, 480)
     assert img.getpixel((400, 240)) != (255, 255, 255)
     assert img.getpixel((2, 240)) != (255, 255, 255)
+
+
+def test_background_defaults_to_the_white_mat():
+    img = process_image(_striped_jpeg(480, 800), 800, 480)
+    assert img.getpixel((2, 240)) == (255, 255, 255)
+
+
+def test_blur_background_fills_the_bars_with_the_photo_itself():
+    """InkyPi's approach: a blurred, cropped copy behind the whole photo."""
+    img = process_image(_striped_jpeg(480, 800), 800, 480, background="blur")
+    assert img.size == (800, 480)
+    # the bars are no longer white...
+    assert img.getpixel((2, 240)) != (255, 255, 255)
+    assert img.getpixel((797, 240)) != (255, 255, 255)
+    # ...and the photo itself is still complete, nothing cropped
+    assert _has_colour(img, (255, 0, 0)), "top of the photo was cropped away"
+    assert _has_colour(img, (0, 200, 0)), "bottom of the photo was cropped away"
+
+
+def test_an_unknown_background_falls_back_to_white():
+    """A typo in config.yaml must not blank the frame."""
+    img = process_image(_striped_jpeg(480, 800), 800, 480, background="rainbow")
+    assert img.getpixel((2, 240)) == (255, 255, 255)
+
+
+def test_blur_leaves_a_fitting_photo_untouched():
+    img = process_image(_striped_jpeg(1000, 600), 800, 480, background="blur")
+    assert img.size == (800, 480)

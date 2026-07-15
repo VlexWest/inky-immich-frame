@@ -7,3 +7,8 @@ state_file: "state/state.json"
 width: 800
 height: 480
 saturation: 0.5
+
+# What fills the space around a photo that does not fit the panel exactly.
+# "white" = a mat, like a real picture frame. "blur" = a blurred copy of the
+# photo behind it. Nothing is cropped either way.
+background: "white"

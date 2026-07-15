@@ -77,3 +77,15 @@ def test_pinning_keeps_album_and_language(tmp_path):
     assert get_selected_album(sf) == "album-1"
     assert get_language(sf) == "ru"
     assert get_pinned_asset(sf) == "asset-1"
+
+
+def test_background_defaults_to_white(tmp_path):
+    p = tmp_path / "config.yaml"
+    p.write_text('immich_url: "http://x:2283"\napi_key: "k"\n')
+    assert load_config(str(p)).background == "white"
+
+
+def test_background_can_be_set_to_blur(tmp_path):
+    p = tmp_path / "config.yaml"
+    p.write_text('immich_url: "http://x:2283"\napi_key: "k"\nbackground: "blur"\n')
+    assert load_config(str(p)).background == "blur"
