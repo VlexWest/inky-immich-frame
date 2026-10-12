@@ -19,7 +19,10 @@ class FakeDisplay:
 
 class InkyDisplay:
     """Real Pimoroni Inky Impression. Imports the device library lazily so the
-    rest of the app runs on a dev machine without the hardware."""
+    rest of the app runs on a dev machine without the hardware.
+
+    A 6-colour P image is passed through by the driver undithered; an RGB image
+    is dithered by the driver using `saturation`."""
 
     def __init__(self, saturation: float = 0.5) -> None:
         from inky.auto import auto  # device-only import

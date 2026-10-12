@@ -207,3 +207,78 @@ def test_an_unknown_background_falls_back_to_white():
 def test_blur_leaves_a_fitting_photo_untouched():
     img = process_image(_striped_jpeg(1000, 600), 800, 480, background="blur")
     assert img.size == (800, 480)
+
+
+from inky_frame.renderer import for_panel
+from inky_frame.tone import NEUTRAL
+
+
+def test_the_white_mat_stays_pure_white_with_tone_on():
+    img = process_image(_striped_jpeg(480, 800), 800, 480)
+    assert img.getpixel((2, 240)) == (255, 255, 255)
+
+
+def test_neutral_tone_matches_the_untoned_fit():
+    a = process_image(_striped_jpeg(480, 800), 800, 480, tone=NEUTRAL)
+    assert all(abs(c - t) <= 4 for c, t in zip(a.getpixel((400, 240)), (40, 90, 160)))
+
+
+def test_display_gets_a_six_colour_image_by_default(tmp_path, image_assets):
+    cfg = _config(tmp_path)
+    set_selected_album(cfg.state_file, "album-1")
+    display = FakeDisplay()
+    Renderer(FakeImmich(assets=image_assets, image_bytes=make_jpeg_bytes()),
+             display, cfg, rng=random.Random(0)).render_once()
+    assert display.last_image.mode == "P"
+    assert max(display.last_image.get_flattened_data()) <= 5
+
+
+def test_driver_mode_hands_over_rgb(tmp_path, image_assets):
+    cfg = _config(tmp_path)
+    cfg.dither = "driver"
+    set_selected_album(cfg.state_file, "album-1")
+    display = FakeDisplay()
+    Renderer(FakeImmich(assets=image_assets, image_bytes=make_jpeg_bytes()),
+             display, cfg, rng=random.Random(0)).render_once()
+    assert display.last_image.mode == "RGB"
+
+
+def test_an_unknown_dither_value_falls_back_to_panel(tmp_path):
+    cfg = _config(tmp_path)
+    cfg.dither = "fancy"
+    assert for_panel(Image.new("RGB", (8, 8), "white"), cfg).mode == "P"
+
+
+def test_cache_holds_the_undithered_photo(tmp_path, image_assets):
+    cfg = _config(tmp_path)
+    set_selected_album(cfg.state_file, "album-1")
+    Renderer(FakeImmich(assets=image_assets, image_bytes=make_jpeg_bytes()),
+             FakeDisplay(), cfg, rng=random.Random(0)).render_once()
+    cached = Image.open(tmp_path / "cache" / "last.png")
+    assert cached.mode == "RGB"
+
+
+def test_cache_fallback_still_goes_through_the_panel_path(tmp_path, image_assets):
+    cfg = _config(tmp_path)
+    set_selected_album(cfg.state_file, "album-1")
+    Renderer(FakeImmich(assets=image_assets, image_bytes=make_jpeg_bytes()),
+             FakeDisplay(), cfg, rng=random.Random(0)).render_once()
+    display = FakeDisplay()
+    Renderer(FakeImmich(assets=image_assets, fail_download=True), display, cfg).render_once()
+    assert display.last_image.mode == "P"
+
+
+def test_enhance_off_uses_neutral_tone(tmp_path, image_assets, monkeypatch):
+    seen = {}
+    import inky_frame.renderer as r
+    real = r.process_image
+    def spy(*a, **kw):
+        seen["tone"] = kw.get("tone")
+        return real(*a, **kw)
+    monkeypatch.setattr(r, "process_image", spy)
+    cfg = _config(tmp_path)
+    cfg.enhance = False
+    set_selected_album(cfg.state_file, "album-1")
+    Renderer(FakeImmich(assets=image_assets, image_bytes=make_jpeg_bytes()),
+             FakeDisplay(), cfg, rng=random.Random(0)).render_once()
+    assert seen["tone"] == NEUTRAL

@@ -89,3 +89,10 @@ def test_background_can_be_set_to_blur(tmp_path):
     p = tmp_path / "config.yaml"
     p.write_text('immich_url: "http://x:2283"\napi_key: "k"\nbackground: "blur"\n')
     assert load_config(str(p)).background == "blur"
+
+
+def test_new_photo_settings_have_safe_defaults(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text('immich_url: "http://x"\napi_key: "k"\n')
+    cfg = load_config(str(p))
+    assert cfg.enhance is True and cfg.dither == "panel"

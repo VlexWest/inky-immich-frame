@@ -8,13 +8,15 @@ from PIL import Image, ImageFilter, ImageOps
 from .config import Config, get_pinned_asset, get_selected_album
 from .display import Display
 from .immich import Asset, ImmichClient
+from .panel import to_panel
+from .tone import NEUTRAL, ToneParams, enhance
 
 
 MAT_COLOUR = (255, 255, 255)
 BLUR_RADIUS = 8
 
 
-def _pad_blur(img: Image.Image, size: tuple[int, int]) -> Image.Image:
+def _pad_blur(img: Image.Image, size: tuple[int, int], tone: ToneParams) -> Image.Image:
     """Fill the leftover with a blurred, cropped copy of the photo itself."""
     bkg = ImageOps.fit(img, size, method=Image.LANCZOS)
     bkg = bkg.filter(ImageFilter.BoxBlur(BLUR_RADIUS))
@@ -23,11 +25,12 @@ def _pad_blur(img: Image.Image, size: tuple[int, int]) -> Image.Image:
         fitted,
         ((size[0] - fitted.size[0]) // 2, (size[1] - fitted.size[1]) // 2),
     )
-    return bkg
+    return enhance(bkg, tone)
 
 
 def process_image(
-    data: bytes, width: int, height: int, background: str = "white"
+    data: bytes, width: int, height: int, background: str = "white",
+    tone: ToneParams = ToneParams(),
 ) -> Image.Image:
     """Fit the whole photo onto the panel, filling what's left over.
 
@@ -38,15 +41,27 @@ def process_image(
 
     An unrecognised `background` falls back to the mat rather than raising: a
     typo in config.yaml must not leave the frame blank.
+
+    Tone preparation touches the photo only, so the mat stays pure white.
     """
     img = Image.open(io.BytesIO(data))
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
+    size = (width, height)
     if background == "blur":
-        return _pad_blur(img, (width, height))
-    return ImageOps.pad(
-        img, (width, height), method=Image.LANCZOS, color=MAT_COLOUR
-    )
+        return _pad_blur(img, size, tone)
+    fitted = enhance(ImageOps.contain(img, size, method=Image.LANCZOS), tone)
+    mat = Image.new("RGB", size, MAT_COLOUR)
+    mat.paste(fitted, ((width - fitted.size[0]) // 2, (height - fitted.size[1]) // 2))
+    return mat
+
+
+def for_panel(img: Image.Image, config: Config) -> Image.Image:
+    """The last step before the panel. Anything but "driver" dithers here, so a
+    typo in config.yaml still gets the better path rather than a blank frame."""
+    if config.dither == "driver":
+        return img
+    return to_panel(img, config.saturation)
 
 
 def pick_asset(assets: list[Asset], rng: random.Random) -> Asset | None:
@@ -109,11 +124,12 @@ class Renderer:
                 img = process_image(
                     data, self.config.width, self.config.height,
                     background=self.config.background,
+                    tone=ToneParams() if self.config.enhance else NEUTRAL,
                 )
                 img.save(cache_path)
             except Exception:
                 if not os.path.exists(cache_path):
                     raise
                 img = Image.open(cache_path).convert("RGB")
-            self.display.show(img)
+            self.display.show(for_panel(img, self.config))
             return True

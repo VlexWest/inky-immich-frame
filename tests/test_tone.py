@@ -14,7 +14,7 @@ def _gradient(w=200, h=100):
 
 def test_neutral_params_leave_the_photo_untouched():
     img = _gradient()
-    assert list(enhance(img, NEUTRAL).getdata()) == list(img.getdata())
+    assert list(enhance(img, NEUTRAL).get_flattened_data()) == list(img.get_flattened_data())
 
 
 def test_enhance_keeps_size_and_mode_and_does_not_mutate():
@@ -22,7 +22,7 @@ def test_enhance_keeps_size_and_mode_and_does_not_mutate():
     before = img.copy()
     out = enhance(img)
     assert out.size == img.size and out.mode == "RGB"
-    assert list(img.getdata()) == list(before.getdata())
+    assert list(img.get_flattened_data()) == list(before.get_flattened_data())
 
 
 def test_autocontrast_stretches_a_dull_photo():
@@ -35,7 +35,7 @@ def test_colour_boost_increases_saturation():
     img = _gradient()
     plain = enhance(img, ToneParams(cutoff=0.0, colour=1.0, gamma=1.0, sharpen=0))
     boosted = enhance(img, ToneParams(cutoff=0.0, colour=1.5, gamma=1.0, sharpen=0))
-    sat = lambda im: sum(px[1] for px in im.convert("HSV").getdata())
+    sat = lambda im: sum(px[1] for px in im.convert("HSV").get_flattened_data())
     assert sat(boosted) > sat(plain)
 
 

@@ -6,7 +6,12 @@ cache_dir: "cache"
 state_file: "state/state.json"
 width: 800
 height: 480
+# 0 = dither against pure colours, 1 = against what the panel really shows.
 saturation: 0.5
+# Contrast, colour and sharpening before dithering.
+enhance: true
+# "panel" (dither here, better photos) or "driver" (the Pimoroni default).
+dither: "panel"
 
 # What fills the space around a photo that does not fit the panel exactly.
 # "white" = a mat, like a real picture frame. "blur" = a blurred copy of the

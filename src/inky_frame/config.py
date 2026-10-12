@@ -19,6 +19,11 @@ class Config:
     # shape: "white" (a mat, like a real frame) or "blur" (a blurred copy of
     # the photo). Nothing is ever cropped either way.
     background: str = "white"
+    # Darkroom fixes (contrast, colour, sharpening) before dithering.
+    enhance: bool = True
+    # "panel": dither here against the colours the panel really shows.
+    # "driver": leave it to the Pimoroni driver, the old behaviour.
+    dither: str = "panel"
 
 
 def load_config(path: str) -> Config:
