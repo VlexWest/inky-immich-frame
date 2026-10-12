@@ -36,8 +36,8 @@ def process_image(
 
     The panel is landscape; a portrait photo cannot fill it without losing
     height, and the height it loses is where faces are. So nothing is ever
-    cropped — the leftover is either a white mat, the way a real picture frame
-    does it, or a blurred copy of the photo behind it.
+    cropped unless `fill` is chosen — the leftover is either a white mat, the
+    way a real picture frame does it, or a blurred copy of the photo behind it.
 
     An unrecognised `background` falls back to the mat rather than raising: a
     typo in config.yaml must not leave the frame blank.
@@ -48,6 +48,9 @@ def process_image(
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
     size = (width, height)
+    if background == "fill":
+        # Opt-in: fills the panel like a print, at the cost of the photo's ends.
+        return enhance(ImageOps.fit(img, size, method=Image.LANCZOS), tone)
     if background == "blur":
         return _pad_blur(img, size, tone)
     fitted = enhance(ImageOps.contain(img, size, method=Image.LANCZOS), tone)

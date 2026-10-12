@@ -16,4 +16,5 @@ dither: "panel"
 # What fills the space around a photo that does not fit the panel exactly.
 # "white" = a mat, like a real picture frame. "blur" = a blurred copy of the
 # photo behind it. Nothing is cropped either way.
+# "fill" = crop to fill the panel (cuts the ends of portrait photos).
 background: "white"

@@ -282,3 +282,20 @@ def test_enhance_off_uses_neutral_tone(tmp_path, image_assets, monkeypatch):
     Renderer(FakeImmich(assets=image_assets, image_bytes=make_jpeg_bytes()),
              FakeDisplay(), cfg, rng=random.Random(0)).render_once()
     assert seen["tone"] == NEUTRAL
+
+
+def test_fill_covers_the_whole_panel():
+    img = process_image(_striped_jpeg(480, 800), 800, 480, background="fill")
+    assert img.size == (800, 480)
+    assert img.getpixel((2, 240)) != (255, 255, 255)
+    assert img.getpixel((797, 240)) != (255, 255, 255)
+
+
+def test_fill_is_opt_in_and_a_portrait_still_keeps_its_ends_by_default():
+    img = process_image(_striped_jpeg(480, 800), 800, 480)
+    assert _has_colour(img, (255, 0, 0)) and _has_colour(img, (0, 200, 0))
+
+
+def test_fill_crops_a_portrait_from_the_middle():
+    img = process_image(_striped_jpeg(480, 800), 800, 480, background="fill")
+    assert not _has_colour(img, (255, 0, 0), tol=30)
