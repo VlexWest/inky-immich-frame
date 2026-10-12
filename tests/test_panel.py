@@ -69,3 +69,18 @@ def test_simulate_driver_is_rgb_in_measured_colours():
     sim = simulate_driver(_photo())
     assert sim.mode == "RGB" and sim.size == (160, 96)
     assert set(sim.get_flattened_data()) <= set(MEASURED)
+
+
+def test_saturation_typos_fall_back_to_the_default():
+    for bad in ("high", None, float("nan")):
+        assert blend_palette(bad) == blend_palette(0.5)
+        assert list(to_panel(_photo(), bad).get_flattened_data()) == list(to_panel(_photo()).get_flattened_data())
+    assert blend_palette("0.0") == PURE
+
+
+def test_driver_remap_keeps_solid_white_at_index_1():
+    """The driver palette has white twice (1 and 6); the tie must resolve to 1."""
+    for s in (0.0, 0.5, 1.0):
+        out = to_panel(Image.new("RGB", (40, 40), (255, 255, 255)), s)
+        assert _driver_indices(out) == list(out.get_flattened_data())
+        assert set(_driver_indices(out)) == {1}
