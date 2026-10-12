@@ -13,8 +13,8 @@ enhance: true
 # "panel" (dither here, better photos) or "driver" (the Pimoroni default).
 dither: "panel"
 
-# What fills the space around a photo that does not fit the panel exactly.
+# How a photo that does not match the panel's shape is placed.
 # "white" = a mat, like a real picture frame. "blur" = a blurred copy of the
-# photo behind it. Nothing is cropped either way.
-# "fill" = crop to fill the panel (cuts the ends of portrait photos).
+# photo behind it. Neither crops. "fill" = crop to fill the panel (cuts the
+# ends of portrait photos).
 background: "white"

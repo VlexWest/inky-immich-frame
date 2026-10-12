@@ -15,10 +15,10 @@ class Config:
     width: int = 800
     height: int = 480
     saturation: float = 0.5
-    # What fills the space around a photo that does not match the panel's
-    # shape: "white" (a mat, like a real frame) or "blur" (a blurred copy of
-    # the photo). Nothing is ever cropped either way.
-    # "fill" = crop to fill the panel (cuts the ends of portrait photos).
+    # How a photo that does not match the panel's shape is placed:
+    # "white" (a mat, like a real frame) or "blur" (a blurred copy of the
+    # photo) never crop; "fill" crops to fill the panel (cuts the ends of
+    # portrait photos).
     background: str = "white"
     # Darkroom fixes (contrast, colour, sharpening) before dithering.
     enhance: bool = True

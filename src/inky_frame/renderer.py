@@ -38,6 +38,8 @@ def process_image(
     height, and the height it loses is where faces are. So nothing is ever
     cropped unless `fill` is chosen — the leftover is either a white mat, the
     way a real picture frame does it, or a blurred copy of the photo behind it.
+    `fill` is the third mode: it crops the photo to cover the panel, so no
+    leftover space is left at all.
 
     An unrecognised `background` falls back to the mat rather than raising: a
     typo in config.yaml must not leave the frame blank.
